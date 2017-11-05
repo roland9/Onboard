@@ -88,16 +88,16 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
 
 - (instancetype)initWithTitle:(NSString *)title body:(NSString *)body image:(UIImage *)image videoURL:(NSURL *)videoURL buttonText:(NSString *)buttonText actionBlock:(action_callback)actionBlock {
     self = [super init];
-
+    
     if (self == nil) {
         return nil;
     }
-
+    
     // Icon image view
     self.iconImageView = [[UIImageView alloc] initWithImage:image];
     self.iconWidth = image ? image.size.width : kDefaultImageViewSize;
     self.iconHeight = image ? image.size.height : kDefaultImageViewSize;
-
+    
     // Title label
     self.titleLabel = [UILabel new];
     self.titleLabel.accessibilityIdentifier = kOnboardMainTextAccessibilityIdentifier;
@@ -106,7 +106,7 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
     self.titleLabel.font = [UIFont fontWithName:kDefaultOnboardingFont size:kDefaultTitleFontSize];
     self.titleLabel.numberOfLines = 0;
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
-
+    
     // Body label
     self.bodyLabel = [UILabel new];
     self.bodyLabel.accessibilityIdentifier = kOnboardSubTextAccessibilityIdentifier;
@@ -115,7 +115,7 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
     self.bodyLabel.font = [UIFont fontWithName:kDefaultOnboardingFont size:kDefaultBodyFontSize];
     self.bodyLabel.numberOfLines = 0;
     self.bodyLabel.textAlignment = NSTextAlignmentCenter;
-
+    
     // Action button
     self.actionButton = [UIButton new];
     self.actionButton.accessibilityIdentifier = kOnboardActionButtonAccessibilityIdentifier;
@@ -123,12 +123,12 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
     [self.actionButton setTitle:buttonText forState:UIControlStateNormal];
     [self.actionButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [self.actionButton addTarget:self action:@selector(handleButtonPressed) forControlEvents:UIControlEventTouchUpInside];
-
+    
     self.buttonActionHandler = actionBlock ?: ^(OnboardingViewController *controller){};
-
+    
     // Movie player
     self.videoURL = videoURL;
-
+    
     // Auto-navigation
     self.movesToNextViewController = NO;
     
@@ -153,26 +153,38 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-
+    
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAppEnteredForeground) name:UIApplicationDidBecomeActiveNotification object:nil];
-
+    
     self.view.backgroundColor = [UIColor clearColor];
-
+    
     // Add all our subviews
     if (self.videoURL) {
         self.player = [[AVPlayer alloc] initWithURL:self.videoURL];
-
+        
         self.moviePlayerController = [AVPlayerViewController new];
         self.moviePlayerController.player = self.player;
         self.moviePlayerController.showsPlaybackControls = NO;
-
+        
         [self.view addSubview:self.moviePlayerController.view];
     }
-
+    
     [self.view addSubview:self.iconImageView];
     [self.view addSubview:self.titleLabel];
     [self.view addSubview:self.bodyLabel];
     [self.view addSubview:self.actionButton];
+    
+    // switch to auto-layout so we can deal with iPhone X safe areas
+    self.actionButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:
+     @[
+       [self.actionButton.widthAnchor constraintEqualToAnchor:self.view.widthAnchor multiplier:kContentWidthMultiplier constant:0],
+       [self.actionButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+       // that will work only in iOS 11 - should have a safe fallback (depending on deployment target)
+       [self.actionButton.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:- self.bottomPadding - self.underPageControlPadding - kMainPageControlHeight],
+       [self.actionButton.heightAnchor constraintEqualToConstant:kActionButtonHeight]
+       ]];
+    
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -183,7 +195,7 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
     if (self.delegate) {
         [self.delegate setNextPage:self];
     }
-
+    
     // If we have a video URL, start playing
     if (self.videoURL) {
         [self.player play];
@@ -195,7 +207,7 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
             self.viewWillAppearBlock();
         });
     }
-
+    
     self.wasPreviouslyVisible = YES;
 }
 
@@ -218,27 +230,27 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-
+    
     // Call our view will disappear block
     if (self.viewWillDisappearBlock) {
         dispatch_async(dispatch_get_main_queue(), ^{
             self.viewWillDisappearBlock();
         });
     }
-
+    
     self.wasPreviouslyVisible = NO;
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
-
+    
     // Call our view did disappear block
     if (self.viewDidDisappearBlock) {
         dispatch_async(dispatch_get_main_queue(), ^{
             self.viewDidDisappearBlock();
         });
     }
-
+    
     // Pause our video if we have one.
     if ((self.player.rate != 0.0) && !self.player.error) {
         [self.player pause];
@@ -261,30 +273,28 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
 
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
-
+    
     if (self.videoURL) {
         self.moviePlayerController.view.frame = self.view.frame;
     }
-
+    
     CGFloat viewWidth = CGRectGetWidth(self.view.frame);
     CGFloat contentWidth = viewWidth * kContentWidthMultiplier;
     CGFloat xPadding = (viewWidth - contentWidth) / 2.0;
-
+    
     [self.iconImageView setFrame:CGRectMake((viewWidth / 2.0) - (self.iconWidth / 2.0), self.topPadding, self.iconWidth, self.iconHeight)];
-
+    
     CGFloat titleYOrigin = CGRectGetMaxY(self.iconImageView.frame) + self.underIconPadding;
-
+    
     self.titleLabel.frame = CGRectMake(xPadding, titleYOrigin, contentWidth, 0);
     [self.titleLabel sizeToFit];
     self.titleLabel.frame = CGRectMake(xPadding, titleYOrigin, contentWidth, CGRectGetHeight(self.titleLabel.frame));
-
+    
     CGFloat bodyYOrigin = CGRectGetMaxY(self.titleLabel.frame) + self.underTitlePadding;
-
+    
     self.bodyLabel.frame = CGRectMake(xPadding, bodyYOrigin, contentWidth, 0);
     [self.bodyLabel sizeToFit];
     self.bodyLabel.frame = CGRectMake(xPadding, bodyYOrigin, contentWidth, CGRectGetHeight(self.bodyLabel.frame));
-
-    self.actionButton.frame = CGRectMake((CGRectGetMaxX(self.view.frame) / 2) - (contentWidth / 2), CGRectGetMaxY(self.view.frame) - self.underPageControlPadding - kMainPageControlHeight - kActionButtonHeight - self.bottomPadding, contentWidth, kActionButtonHeight);
 }
 
 
@@ -314,3 +324,4 @@ NSString * const kOnboardActionButtonAccessibilityIdentifier = @"OnboardActionBu
 }
 
 @end
+
