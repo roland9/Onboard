@@ -105,6 +105,7 @@ static NSString * const kSkipButtonText = @"Skip";
     self.pageControl = [UIPageControl new];
     self.pageControl.numberOfPages = self.viewControllers.count;
     self.pageControl.userInteractionEnabled = NO;
+    self.pageControl.translatesAutoresizingMaskIntoConstraints = NO;
 
     self.skipButton = [UIButton new];
     [self.skipButton setTitle:kSkipButtonText forState:UIControlStateNormal];
@@ -149,7 +150,6 @@ static NSString * const kSkipButtonText = @"Skip";
     self.pageVC.view.frame = self.view.frame;
     self.moviePlayerController.view.frame = self.view.frame;
     self.skipButton.frame = CGRectMake(CGRectGetMaxX(self.view.frame) - kSkipButtonWidth, CGRectGetMaxY(self.view.frame) - self.underPageControlPadding - kSkipButtonHeight, kSkipButtonWidth, kSkipButtonHeight);
-    self.pageControl.frame = CGRectMake(0, CGRectGetMaxY(self.view.frame) - self.underPageControlPadding - kPageControlHeight, self.view.frame.size.width, kPageControlHeight);
 }
 
 - (void)generateView {
@@ -227,7 +227,17 @@ static NSString * const kSkipButtonText = @"Skip";
     
     // create the page control
     [self.view addSubview:self.pageControl];
-    
+
+    // switch to auto-layout so we can deal with iPhone X safe areas
+    [NSLayoutConstraint activateConstraints:
+     @[
+       [self.pageControl.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+       [self.pageControl.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+       // that will work only in iOS 11 - should have a safe fallback (depending on deployment target)
+       [self.pageControl.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
+       [self.pageControl.heightAnchor constraintEqualToConstant:kPageControlHeight]
+       ]];
+
     // if we allow skipping, setup the skip button
     if (self.allowSkipping) {
         [self.view addSubview:self.skipButton];
